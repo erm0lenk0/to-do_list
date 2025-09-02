@@ -1,24 +1,38 @@
-from django.shortcuts import render
-from django.urls import reverse_lazy
-from django.views import generic
+from django.utils import timezone
 
+
+from django.http import HttpResponse
+from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse_lazy
+from django.views import generic, View
+
+from plans.forms import TaskForm
 from plans.models import Task, Tag
 
 
 def index(request):
-    tasks = Task.objects.all().order_by("is_done", "-datetime")
+    tasks = Task.objects.prefetch_related('tags').order_by("is_done", "-datetime")
     return render(request, "plans/index.html", {"tasks": tasks})
 
 
-class TaskCreateView(generic.ListView):
+class TaskCreateView(generic.CreateView):
     model = Task
-    fields = "__all__"
-    success_url = reverse_lazy("plans:index")
+    form_class = TaskForm
     template_name = "plans/task_form.html"
+    success_url = reverse_lazy("plans:index")
 
-class TaskUpdateView(generic.DetailView):
+    def form_valid(self, form):
+        task = form.save(commit=False)
+        duration = form.cleaned_data['duration_input']
+        task.deadline = timezone.now() + duration
+        task.save()
+        form.save_m2m()
+        return super().form_valid(form)
+
+
+class TaskUpdateView(generic.UpdateView):
     model = Task
-    fields = "__all__"
+    form_class = TaskForm
     template_name = "plans/task_form.html"
     success_url = reverse_lazy("plans:index")
 
@@ -27,9 +41,12 @@ class TaskDeleteView(generic.DeleteView):
     template_name = "plans/task_confirm_delete.html"
     success_url = reverse_lazy("plans:index")
 
-# class ToggleAssignToTaskView(generic.DetailView):
-#     model = Task
-#     fields = "__all__"
+class ToggleAssignToTaskView(View):
+    def post(self, request, pk):
+        task = get_object_or_404(Task, pk=pk)
+        task.is_done = not task.is_done
+        task.save()
+        return redirect("plans:index")
 
 
 class TagListView(generic.ListView):
