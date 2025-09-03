@@ -1,0 +1,10 @@
+.idea
+.venv/
+**__pycache__
+
+# Django migration files (except __init__.py)
+**/migrations/*.pyc
+**/migrations/*.pyo
+**/migrations/__pycache__/
+**/migrations/*.sqlite3
+db.sqlite3
